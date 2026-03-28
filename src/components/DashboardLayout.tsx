@@ -1,19 +1,48 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { BookOpen, BookMarked, FileText, MessageSquare } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { BookOpen, BookMarked, FileText, MessageSquare, Briefcase, Menu, X } from 'lucide-react'
+import KeyboardShortcuts from './KeyboardShortcuts'
+import PageTransition from './PageTransition'
 
 const navItems = [
-  { to: '/lessons', label: 'Lessons', icon: BookOpen },
-  { to: '/playbook', label: 'Playbook', icon: BookMarked },
-  { to: '/script', label: 'Script', icon: FileText },
-  { to: '/coach', label: 'Coach Chat', icon: MessageSquare },
+  { to: '/lessons', label: 'Lessons', icon: BookOpen, shortcut: '1' },
+  { to: '/playbook', label: 'Playbook', icon: BookMarked, shortcut: '2' },
+  { to: '/script', label: 'Script', icon: FileText, shortcut: '3' },
+  { to: '/coach', label: 'Coach Chat', icon: MessageSquare, shortcut: '4' },
+  { to: '/offer', label: 'My Offer', icon: Briefcase, shortcut: '5' },
 ]
 
+const pageLabels: Record<string, string> = {
+  '/lessons': 'Lessons',
+  '/playbook': 'Playbook',
+  '/script': 'Script',
+  '/coach': 'Coach Chat',
+  '/offer': 'My Offer',
+}
+
 export default function DashboardLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const location = useLocation()
+  const pageLabel = pageLabels[location.pathname] ?? 'Cold Call Coach'
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      <KeyboardShortcuts />
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.35)',
+            zIndex: 40, display: 'none',
+          }}
+          className="mobile-overlay"
+        />
+      )}
+
       {/* Sidebar */}
       <aside
+        className={`dashboard-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}
         style={{
           width: '240px',
           flexShrink: 0,
@@ -27,31 +56,56 @@ export default function DashboardLayout() {
           style={{
             padding: '20px',
             borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '18px', color: 'var(--accent)' }}>
             Cold Call Coach
           </span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="sidebar-close-btn"
+            style={{
+              display: 'none',
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: '4px', color: 'var(--text-muted)',
+            }}
+          >
+            <X size={18} />
+          </button>
         </div>
         <nav style={{ flex: 1, padding: '12px' }}>
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {navItems.map(({ to, label, icon: Icon, shortcut }) => (
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors mb-0.5',
-                  isActive
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                )
-              }
-              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '14px', fontWeight: 500, marginBottom: '2px' }}
+              onClick={() => setSidebarOpen(false)}
+              style={({ isActive }) => ({
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 500,
+                marginBottom: '2px',
+                transition: 'background-color 0.12s, color 0.12s',
+                backgroundColor: isActive ? 'var(--accent-light)' : 'transparent',
+              })}
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={16} color={isActive ? '#3b82f6' : '#6b7280'} />
-                  <span style={{ color: isActive ? '#3b82f6' : '#374151' }}>{label}</span>
+                  <Icon size={16} color={isActive ? 'var(--accent)' : 'var(--text-muted)'} />
+                  <span style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', flex: 1 }}>{label}</span>
+                  <span
+                    className="nav-shortcut-hint"
+                    style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.5 }}
+                  >
+                    ⌘{shortcut}
+                  </span>
                 </>
               )}
             </NavLink>
@@ -63,12 +117,84 @@ export default function DashboardLayout() {
       <main
         style={{
           flex: 1,
-          overflowY: 'auto',
-          backgroundColor: '#ffffff',
+          overflow: 'hidden',
+          backgroundColor: 'var(--bg)',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Outlet />
+        {/* Mobile header bar */}
+        <div
+          className="mobile-header"
+          style={{
+            display: 'none',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '0 16px',
+            height: '56px',
+            borderBottom: '1px solid var(--border)',
+            backgroundColor: 'var(--sidebar-bg)',
+            flexShrink: 0,
+          }}
+        >
+          <button
+            onClick={() => setSidebarOpen(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: '4px', color: 'var(--text-muted)',
+              flexShrink: 0,
+            }}
+          >
+            <Menu size={20} />
+          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.2, fontWeight: 400 }}>
+              Cold Call Coach
+            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+              {pageLabel}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
+        </div>
       </main>
+
+      <style>{`
+        .nav-link-item:hover {
+          background-color: var(--accent-light) !important;
+        }
+        @media (max-width: 640px) {
+          .dashboard-sidebar {
+            position: fixed !important;
+            top: 0; left: 0; bottom: 0;
+            z-index: 50;
+            transform: translateX(-100%);
+            transition: transform 0.22s ease;
+            width: 240px !important;
+          }
+          .dashboard-sidebar.sidebar-open {
+            transform: translateX(0);
+          }
+          .mobile-overlay {
+            display: block !important;
+          }
+          .mobile-header {
+            display: flex !important;
+          }
+          .sidebar-close-btn {
+            display: block !important;
+          }
+          .nav-shortcut-hint {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
