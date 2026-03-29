@@ -8,6 +8,7 @@ export const StorageKeys = {
   Chat: 'ccc_chat',
   Onboarded: 'ccc_onboarded',
   Offers: 'ccc_offers',
+  TestScripts: 'ccc_test_scripts',
 } as const
 
 export function loadJSON<T>(key: string, fallback: T): T {

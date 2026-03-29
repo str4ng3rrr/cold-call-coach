@@ -6,7 +6,7 @@ export default function KeyboardShortcuts() {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      const mod = e.metaKey || e.ctrlKey
+      const mod = e.altKey
 
       // Cmd/Ctrl+1-4 for quick navigation
       if (mod && e.key === '1') { e.preventDefault(); navigate('/lessons') }
@@ -14,6 +14,7 @@ export default function KeyboardShortcuts() {
       if (mod && e.key === '3') { e.preventDefault(); navigate('/script') }
       if (mod && e.key === '4') { e.preventDefault(); navigate('/coach') }
       if (mod && e.key === '5') { e.preventDefault(); navigate('/offer') }
+      if (mod && e.key === '6') { e.preventDefault(); navigate('/testing') }
     }
 
     window.addEventListener('keydown', handleKeyDown)

@@ -6,6 +6,7 @@ import PlaybookPage from './pages/PlaybookPage'
 import ScriptPage from './pages/ScriptPage'
 import CoachPage from './pages/CoachPage'
 import MyOfferPage from './pages/MyOfferPage'
+import ScriptTestingPage from './pages/ScriptTestingPage'
 import Onboarding from './components/Onboarding'
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="script" element={<ScriptPage />} />
           <Route path="coach" element={<CoachPage />} />
           <Route path="offer" element={<MyOfferPage />} />
+          <Route path="testing" element={<ScriptTestingPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BookOpen, BookMarked, FileText, MessageSquare, Briefcase, Menu, X } from 'lucide-react'
+import { BookOpen, BookMarked, FileText, MessageSquare, Briefcase, FlaskConical, Menu, X } from 'lucide-react'
 import KeyboardShortcuts from './KeyboardShortcuts'
 import PageTransition from './PageTransition'
 
@@ -10,6 +10,7 @@ const navItems = [
   { to: '/script', label: 'Script', icon: FileText, shortcut: '3' },
   { to: '/coach', label: 'Coach Chat', icon: MessageSquare, shortcut: '4' },
   { to: '/offer', label: 'My Offer', icon: Briefcase, shortcut: '5' },
+  { to: '/testing', label: 'Testing', icon: FlaskConical, shortcut: '6' },
 ]
 
 const pageLabels: Record<string, string> = {
@@ -18,6 +19,7 @@ const pageLabels: Record<string, string> = {
   '/script': 'Script',
   '/coach': 'Coach Chat',
   '/offer': 'My Offer',
+  '/testing': 'Script Testing',
 }
 
 export default function DashboardLayout() {
@@ -104,7 +106,7 @@ export default function DashboardLayout() {
                     className="nav-shortcut-hint"
                     style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.5 }}
                   >
-                    ⌘{shortcut}
+                    Alt+{shortcut}
                   </span>
                 </>
               )}
