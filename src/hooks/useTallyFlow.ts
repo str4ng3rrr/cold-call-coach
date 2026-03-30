@@ -1,6 +1,7 @@
 import { useReducer, useCallback } from 'react'
 import type {
   TallyState,
+  TallyStateSnapshot,
   TallyAction,
   TallyOption,
   FunnelOutcome,
@@ -12,6 +13,17 @@ const initialState: TallyState = {
   path: [],
   pendingOutcome: null,
   notes: '',
+  history: [],
+}
+
+function snapshot(state: TallyState): TallyStateSnapshot {
+  return {
+    stage: state.stage,
+    viaGatekeeper: state.viaGatekeeper,
+    path: [...state.path],
+    pendingOutcome: state.pendingOutcome,
+    notes: state.notes,
+  }
 }
 
 function reducer(state: TallyState, action: TallyAction): TallyState {
@@ -29,8 +41,21 @@ function reducer(state: TallyState, action: TallyAction): TallyState {
     case 'SKIP_NOTES':
       return { ...state, stage: 'done', notes: action.type === 'SKIP_NOTES' ? '' : state.notes }
 
-    case 'PICK':
-      return handlePick(state, action.action)
+    case 'BACK': {
+      if (state.history.length === 0) return state
+      const prev = state.history[state.history.length - 1]
+      return {
+        ...prev,
+        history: state.history.slice(0, -1),
+      }
+    }
+
+    case 'PICK': {
+      const snap = snapshot(state)
+      const nextState = handlePick(state, action.action)
+      if (nextState === state) return state
+      return { ...nextState, history: [...state.history, snap] }
+    }
 
     default:
       return state
@@ -278,6 +303,7 @@ export function useTallyFlow() {
 
   const start = useCallback(() => dispatch({ type: 'START' }), [])
   const pick = useCallback((action: string) => dispatch({ type: 'PICK', action }), [])
+  const back = useCallback(() => dispatch({ type: 'BACK' }), [])
   const setNotes = useCallback((notes: string) => dispatch({ type: 'SET_NOTES', notes }), [])
   const saveNotes = useCallback(() => dispatch({ type: 'SAVE_NOTES' }), [])
   const skipNotes = useCallback(() => dispatch({ type: 'SKIP_NOTES' }), [])
@@ -285,11 +311,18 @@ export function useTallyFlow() {
 
   const stageInfo = getStageInfo(state)
 
+  const canGoBack = state.history.length > 0
+    && state.stage !== 'notes_input'
+    && state.stage !== 'done'
+    && state.stage !== 'idle'
+
   return {
     state,
     stageInfo,
     start,
     pick,
+    back,
+    canGoBack,
     setNotes,
     saveNotes,
     skipNotes,

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { CheckCircle, Sparkles } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Sparkles } from 'lucide-react'
 import TallyButton from './TallyButton'
+import FunnelTree from './FunnelTree'
 import { useTallyFlow } from '../../hooks/useTallyFlow'
 import { OUTCOME_LABELS } from '../../types/scriptTesting'
 import type { CallRecord, FunnelOutcome } from '../../types/scriptTesting'
@@ -10,7 +11,7 @@ interface TallyFlowProps {
 }
 
 export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
-  const { state, stageInfo, start, pick, setNotes, saveNotes, skipNotes, reset, isDone, isIdle } = useTallyFlow()
+  const { state, stageInfo, start, pick, back, canGoBack, setNotes, saveNotes, skipNotes, reset, isDone, isIdle } = useTallyFlow()
   const notesRef = useRef<HTMLTextAreaElement>(null)
   const prevDoneRef = useRef(false)
 
@@ -35,12 +36,24 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
     }
   }, [state.stage])
 
-  // Keyboard shortcuts: 1/2 to pick first/second option
+  // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      // Don't intercept when typing in a textarea/input
       const target = e.target as HTMLElement
-      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') return
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+        // Inside notes textarea, only handle Alt+Enter
+        if (state.stage === 'notes_input' && e.key === 'Enter' && e.altKey) {
+          saveNotes()
+        }
+        return
+      }
+
+      // Back: Backspace or Escape
+      if ((e.key === 'Backspace' || e.key === 'Escape') && canGoBack) {
+        e.preventDefault()
+        back()
+        return
+      }
 
       if (state.stage === 'idle' && e.key === 'n') {
         start()
@@ -51,12 +64,6 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
         start()
         return
       }
-      if (state.stage === 'notes_input') {
-        if (e.key === 'Enter' && e.altKey) {
-          saveNotes()
-        }
-        return
-      }
       const options = stageInfo.options
       if (e.key === '1' && options[0]) pick(options[0].action)
       if (e.key === '2' && options[1]) pick(options[1].action)
@@ -64,7 +71,7 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [state.stage, stageInfo.options, isDone, pick, start, reset, saveNotes])
+  }, [state.stage, stageInfo.options, isDone, canGoBack, pick, start, reset, back, saveNotes])
 
   const isBooked = isDone && (
     state.pendingOutcome === 'appointment_booked' ||
@@ -73,8 +80,11 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Breadcrumb / progress trail */}
-      {state.path.length > 0 && (
+      {/* Visual funnel tree */}
+      <FunnelTree path={state.path} stage={state.stage} />
+
+      {/* Breadcrumb trail */}
+      {state.path.length > 0 && !isDone && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
           {state.path.map((step, i) => (
             <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -96,14 +106,30 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
         </div>
       )}
 
-      {/* Stage title */}
-      {!isDone && !isIdle && (
-        <div style={{
-          fontSize: '15px',
-          fontWeight: 600,
-          color: 'var(--text-primary)',
-        }}>
-          {stageInfo.title}
+      {/* Back button + stage title */}
+      {!isDone && !isIdle && state.stage !== 'notes_input' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {canGoBack && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={back}
+              title="Go back (Backspace)"
+              style={{
+                padding: '4px 6px',
+                flexShrink: 0,
+                transition: 'opacity 0.15s',
+              }}
+            >
+              <ArrowLeft size={16} />
+            </button>
+          )}
+          <div style={{
+            fontSize: '15px',
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+          }}>
+            {stageInfo.title}
+          </div>
         </div>
       )}
 
@@ -170,6 +196,9 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
       {/* Notes input stage */}
       {state.stage === 'notes_input' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+            {stageInfo.title}
+          </div>
           <textarea
             ref={notesRef}
             value={state.notes}
@@ -213,7 +242,7 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
         </div>
       )}
 
-      {/* Log another / Reset after done */}
+      {/* Log another after done */}
       {isDone && (
         <button
           className="btn btn-secondary"

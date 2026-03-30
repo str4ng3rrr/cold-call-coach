@@ -63,7 +63,7 @@ export interface TallyOption {
   variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning'
 }
 
-export interface TallyState {
+export interface TallyStateSnapshot {
   stage: TallyStage
   viaGatekeeper: boolean
   path: string[]
@@ -71,9 +71,19 @@ export interface TallyState {
   notes: string
 }
 
+export interface TallyState {
+  stage: TallyStage
+  viaGatekeeper: boolean
+  path: string[]
+  pendingOutcome: FunnelOutcome | null
+  notes: string
+  history: TallyStateSnapshot[]
+}
+
 export type TallyAction =
   | { type: 'START' }
   | { type: 'PICK'; action: string }
+  | { type: 'BACK' }
   | { type: 'SET_NOTES'; notes: string }
   | { type: 'SAVE_NOTES' }
   | { type: 'SKIP_NOTES' }
