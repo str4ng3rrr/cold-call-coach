@@ -2,6 +2,7 @@ import FunnelBar from './FunnelBar'
 import MiniBarChart from './MiniBarChart'
 import type { TestScript } from '../../types/scriptTesting'
 import { BOOKED_OUTCOMES, REACHED_OWNER_OUTCOMES, CALLBACK_ELIGIBLE_OUTCOMES } from '../../types/scriptTesting'
+import { loadJSON, StorageKeys } from '../../lib/storage'
 
 interface FunnelAnalyticsProps {
   script: TestScript
@@ -9,6 +10,10 @@ interface FunnelAnalyticsProps {
 }
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function getHourInTz(isoTimestamp: string, tz: string): number {
+  return parseInt(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: tz }).format(new Date(isoTimestamp)), 10) % 24
+}
 
 export function computeAnalytics(script: TestScript) {
   const calls = script.calls
@@ -26,9 +31,9 @@ export function computeAnalytics(script: TestScript) {
   const bookedByHour = Array(24).fill(0)
 
   for (const call of calls) {
-    const d = new Date(call.timestamp)
-    const h = d.getHours()
-    const dow = d.getDay()
+    const tz = call.callingTimezone || loadJSON<string>(StorageKeys.CALLING_TZ, 'America/New_York')
+    const h = getHourInTz(call.timestamp, tz)
+    const dow = new Date(call.timestamp).getDay()
     byHour[h]++
     byDow[dow]++
     if (BOOKED_OUTCOMES.includes(call.outcome)) bookedByHour[h]++

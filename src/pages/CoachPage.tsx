@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, Trash2, MessageSquare, BookOpen, Briefcase } from 'lucide-react'
 import { StorageKeys } from '../lib/storage'
+import { HUMANIZER_PROMPT } from '../lib/humanizer'
 import ReactMarkdown from 'react-markdown'
 
 interface Message {
@@ -71,7 +72,7 @@ function buildSystemPrompt(activeOffers: Offer[] = []): string {
     base += offerContext
   }
 
-  return base
+  return base + HUMANIZER_PROMPT
 }
 
 function buildLessonContext(lessons: Lesson[], attachedIds: string[]): string {
@@ -91,22 +92,37 @@ async function sendToClaudeApi(messages: Message[], systemPrompt: string): Promi
   if (!apiKey) throw new Error('Missing VITE_ANTHROPIC_API_KEY — add it to your .env file')
 
   // Filter out error messages before sending to API
-  const apiMessages = messages
+  const filtered = messages
     .filter(m => m.role === 'user' || m.role === 'assistant')
     .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+
+  // Cache the conversation history up to the last assistant turn.
+  // Everything before the current user message is stable and won't change.
+  const lastAssistantIdx = filtered.map(m => m.role).lastIndexOf('assistant')
+  const apiMessages = filtered.map((msg, i) => {
+    if (i === lastAssistantIdx) {
+      // Mark the last assistant message as a cache breakpoint.
+      // The API caches everything from the start up to and including this block.
+      return { role: msg.role, content: [{ type: 'text', text: msg.content, cache_control: { type: 'ephemeral' } }] }
+    }
+    return msg
+  })
 
   const response = await fetch('/api/anthropic/v1/messages', {
     method: 'POST',
     headers: {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'prompt-caching-2024-07-31',
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system: systemPrompt,
+      // Cache the system prompt (playbook + offers). This is the biggest win —
+      // the playbook can be large and is identical on every message in a session.
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       messages: apiMessages,
     }),
   })
@@ -264,9 +280,9 @@ export default function CoachPage() {
             <MessageSquare size={20} />
           </div>
           <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-              Coach Chat
-            </h1>
+          <h1 style={{ margin: 0, fontSize: '22px', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            Coach Chat
+          </h1>
             <p style={{ fontSize: '13px', margin: '2px 0 0', color: 'var(--text-muted)' }}>
               Ask anything about your cold calling
             </p>

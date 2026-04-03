@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { BookOpen, Edit3, Save, AlertCircle, PlusCircle, CheckCircle, Loader2, ListPlus, X, Check, Trash2, ChevronDown, Square } from 'lucide-react'
 import { StorageKeys } from '../lib/storage'
+import { HUMANIZER_PROMPT } from '../lib/humanizer'
 
 interface Lesson {
   id: string
@@ -338,7 +339,7 @@ Return ONLY the markdown content of the full updated playbook section. Do not in
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 4096,
-        system: 'You are a cold calling coach building a best-practices playbook. You can only ADD or EDIT rules — NEVER remove existing content.',
+        system: 'You are a cold calling coach building a best-practices playbook. You can only ADD or EDIT rules — NEVER remove existing content.' + HUMANIZER_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
       }),
     })
@@ -472,7 +473,9 @@ Return ONLY the markdown content of the full updated playbook section. Do not in
           flexShrink: 0,
         }}>
           <div>
-            <h1 style={{ fontSize: '22px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>Playbook</h1>
+          <h1 style={{ margin: 0, fontSize: '22px', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            Playbook
+          </h1>
             <p style={{ margin: '4px 0 0', fontSize: '14px', color: 'var(--text-muted)' }}>
               Your living best-practices document
             </p>

@@ -8,9 +8,11 @@ import type { CallRecord, FunnelOutcome } from '../../types/scriptTesting'
 
 interface TallyFlowProps {
   onCallComplete: (call: Omit<CallRecord, 'id'>) => void
+  onUndoLastCall?: () => void
+  callingTimezone?: string
 }
 
-export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
+export default function TallyFlow({ onCallComplete, onUndoLastCall, callingTimezone }: TallyFlowProps) {
   const { state, stageInfo, start, pick, back, canGoBack, setNotes, saveNotes, skipNotes, reset, isDone, isIdle } = useTallyFlow()
   const notesRef = useRef<HTMLTextAreaElement>(null)
   const prevDoneRef = useRef(false)
@@ -23,11 +25,12 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
         path: state.path,
         outcome: state.pendingOutcome as FunnelOutcome,
         notes: state.notes || undefined,
+        callingTimezone: callingTimezone || undefined,
       }
       onCallComplete(record)
     }
     prevDoneRef.current = isDone
-  }, [isDone, state, onCallComplete])
+  }, [isDone, state, onCallComplete, callingTimezone])
 
   // Focus notes textarea when entering notes_input stage
   useEffect(() => {
@@ -51,6 +54,7 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
       // Back: Backspace or Escape
       if ((e.key === 'Backspace' || e.key === 'Escape') && canGoBack) {
         e.preventDefault()
+        if (isDone) onUndoLastCall?.()
         back()
         return
       }
@@ -134,6 +138,20 @@ export default function TallyFlow({ onCallComplete }: TallyFlowProps) {
       )}
 
       {/* Done state */}
+      {isDone && canGoBack && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => { onUndoLastCall?.(); back() }}
+            title="Go back (Backspace)"
+            style={{ padding: '4px 6px' }}
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Undo last selection</span>
+        </div>
+      )}
+
       {isDone && (
         <div style={{
           padding: '20px',

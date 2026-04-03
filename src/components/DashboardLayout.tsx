@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BookOpen, BookMarked, FileText, MessageSquare, Briefcase, FlaskConical, Menu, X } from 'lucide-react'
+import { BookOpen, BookMarked, FileText, MessageSquare, Briefcase, FlaskConical, Menu, X, ChevronLeft, ChevronRight, Phone } from 'lucide-react'
 import KeyboardShortcuts from './KeyboardShortcuts'
 import PageTransition from './PageTransition'
 
@@ -24,6 +24,7 @@ const pageLabels: Record<string, string> = {
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
   const pageLabel = pageLabels[location.pathname] ?? 'Cold Call Coach'
 
@@ -44,28 +45,38 @@ export default function DashboardLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`dashboard-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}
+        className={`dashboard-sidebar${sidebarOpen ? ' sidebar-open' : ''}${collapsed ? ' sidebar-collapsed' : ''}`}
         style={{
-          width: '240px',
+          width: collapsed ? '56px' : '240px',
           flexShrink: 0,
           backgroundColor: 'var(--sidebar-bg)',
           borderRight: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',
+          transition: 'width 0.22s ease',
+          overflow: 'hidden',
         }}
       >
         <div
           style={{
-            padding: '20px',
+            padding: collapsed ? '16px 0' : '20px',
             borderBottom: '1px solid var(--border)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: collapsed ? 'center' : 'space-between',
+            position: 'relative',
+            flexShrink: 0,
+            minHeight: '64px',
           }}
         >
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '18px', color: 'var(--accent)' }}>
-            Cold Call Coach
-          </span>
+          {collapsed ? (
+            <Phone size={20} color="var(--accent)" />
+          ) : (
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '18px', color: 'var(--accent)', whiteSpace: 'nowrap' }}>
+              Cold Call Coach
+            </span>
+          )}
+          {/* Mobile close btn */}
           <button
             onClick={() => setSidebarOpen(false)}
             className="sidebar-close-btn"
@@ -77,20 +88,49 @@ export default function DashboardLayout() {
           >
             <X size={18} />
           </button>
+          {/* Collapse toggle */}
+          <button
+            onClick={() => setCollapsed(c => !c)}
+            className="sidebar-collapse-btn"
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              right: collapsed ? '50%' : '8px',
+              transform: collapsed ? 'translate(50%, -50%)' : 'translateY(-50%)',
+              background: 'var(--sidebar-bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '50%',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: 0,
+              color: 'var(--text-muted)',
+              zIndex: 10,
+              transition: 'right 0.22s ease, transform 0.22s ease',
+            }}
+          >
+            {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+          </button>
         </div>
-        <nav style={{ flex: 1, padding: '12px' }}>
+        <nav style={{ flex: 1, padding: collapsed ? '12px 0' : '12px' }}>
           {navItems.map(({ to, label, icon: Icon, shortcut }) => (
             <NavLink
               key={to}
               to={to}
               onClick={() => setSidebarOpen(false)}
+              title={collapsed ? label : undefined}
               style={({ isActive }) => ({
                 textDecoration: 'none',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'flex-start',
                 gap: '10px',
-                padding: '8px 12px',
-                borderRadius: '6px',
+                padding: collapsed ? '10px 0' : '8px 12px',
+                borderRadius: collapsed ? 0 : '6px',
                 fontSize: '14px',
                 fontWeight: 500,
                 marginBottom: '2px',
@@ -100,14 +140,18 @@ export default function DashboardLayout() {
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={16} color={isActive ? 'var(--accent)' : 'var(--text-muted)'} />
-                  <span style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', flex: 1 }}>{label}</span>
-                  <span
-                    className="nav-shortcut-hint"
-                    style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.5 }}
-                  >
-                    Alt+{shortcut}
-                  </span>
+                  <Icon size={16} color={isActive ? 'var(--accent)' : 'var(--text-muted)'} style={{ flexShrink: 0 }} />
+                  {!collapsed && (
+                    <>
+                      <span style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', flex: 1 }}>{label}</span>
+                      <span
+                        className="nav-shortcut-hint"
+                        style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.5 }}
+                      >
+                        Alt+{shortcut}
+                      </span>
+                    </>
+                  )}
                 </>
               )}
             </NavLink>
@@ -171,6 +215,14 @@ export default function DashboardLayout() {
         .nav-link-item:hover {
           background-color: var(--accent-light) !important;
         }
+        .sidebar-collapse-btn:hover {
+          background-color: var(--accent-light) !important;
+          color: var(--accent) !important;
+        }
+        .sidebar-collapsed .sidebar-collapse-btn {
+          right: 50% !important;
+          transform: translate(50%, -50%) !important;
+        }
         @media (max-width: 640px) {
           .dashboard-sidebar {
             position: fixed !important;
@@ -191,6 +243,9 @@ export default function DashboardLayout() {
           }
           .sidebar-close-btn {
             display: block !important;
+          }
+          .sidebar-collapse-btn {
+            display: none !important;
           }
           .nav-shortcut-hint {
             display: none !important;

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, MessageSquare, ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, AlertCircle, RefreshCw, History, X } from 'lucide-react'
 import { StorageKeys } from '../lib/storage'
+import { HUMANIZER_PROMPT } from '../lib/humanizer'
 import ReactMarkdown from 'react-markdown'
 
 const SCRIPT_KEY = StorageKeys.Script
@@ -410,7 +411,7 @@ export default function ScriptPage() {
 
     prompt += `\n\nWhen suggesting improved script text, write it clearly so the user can easily copy it or use the Replace button to insert it directly into their editor. Be concise and actionable.`
 
-    return prompt
+    return prompt + HUMANIZER_PROMPT
   }
 
   const handleChatSend = useCallback(async () => {
@@ -535,9 +536,9 @@ export default function ScriptPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
-              <h1 style={{ fontSize: '22px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-                Script Editor
-              </h1>
+            <h1 style={{ margin: 0, fontSize: '22px', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            Script Editor 
+          </h1>
               <p style={{ margin: '4px 0 0', fontSize: '14px', color: 'var(--text-muted)' }}>
                 Write and refine your cold call script. Select text to get targeted AI help.
               </p>

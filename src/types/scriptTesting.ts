@@ -22,6 +22,7 @@ export interface CallRecord {
   path: string[]          // sequence of stage labels taken
   outcome: FunnelOutcome
   notes?: string          // for fail points
+  callingTimezone?: string
 }
 
 export interface CallbackRecord {
@@ -38,6 +39,8 @@ export interface TestScript {
   archived: boolean
   calls: CallRecord[]
   callbacks: CallbackRecord[]
+  tree?: ScriptTreeData
+  treeCalls?: TreeCallRecord[]
 }
 
 // --- Tally flow state machine types ---
@@ -130,3 +133,87 @@ export const REACHED_OWNER_OUTCOMES: FunnelOutcome[] = [
   'gk_close_fail',
   'gk_appointment_booked',
 ]
+
+// ─── Script Pathway Tree ───────────────────────────────────────────────────
+
+export type SemanticNodeId =
+  | 'opener'
+  | 'gatekeeper'
+  | 'owner'
+  | 'explainer'
+  | 'close'
+  | 'not-in-office'
+  | 'take-a-message'
+
+export interface TreeNode {
+  id: string
+  type: 'start' | 'step' | 'terminal' | 'booked'
+  // start = blue (var(--accent)), step = neutral, terminal = red (var(--danger)), booked = green (var(--success))
+  label: string       // short display name e.g. "Opener"
+  content: string     // full script text shown during recording
+  x: number           // logical canvas position
+  y: number
+  semanticId?: string
+}
+
+export interface TreeEdge {
+  id: string
+  fromNodeId: string
+  toNodeId: string
+  responseLabel: string   // e.g. "Sure, go on" or "Not interested"
+}
+
+export interface ScriptTreeData {
+  nodes: TreeNode[]
+  edges: TreeEdge[]
+  viewport: { x: number; y: number; zoom: number }
+}
+
+export interface TreeCallRecord {
+  id: string
+  timestamp: string
+  pathNodeIds: string[]    // ordered list of node IDs traversed
+  terminalNodeId: string   // the final node where call ended
+  wasBooked: boolean       // true if terminal node type === 'booked'
+  notes?: string
+  noConnection?: boolean
+}
+
+// Analytics types (computed, not stored)
+export interface TreeNodeStat {
+  nodeId: string
+  visitCount: number
+  exitCount: number
+  edgeTraversals: Record<string, number>   // edgeId → count
+}
+
+export interface TreePathStat {
+  pathNodeIds: string[]
+  count: number
+  bookingRate: number   // 0–1
+}
+
+export interface TreeFunnelStats {
+  totalCalls: number
+  noConnectionCalls: number
+  connectedCalls: number
+  connectionRate: number
+  reachedGkCalls: number
+  reachedOwnerCalls: number
+  ownerRate: number
+  deliveredExplainerCalls: number
+  closedCalls: number
+  bookedCalls: number
+  bookingRate: number
+  notInOfficeCalls: number
+  takeMessageCalls: number
+}
+
+export interface TreeAnalytics {
+  totalCalls: number
+  totalBooked: number
+  bookingRate: number   // 0–1
+  nodeStats: Record<string, TreeNodeStat>
+  topPaths: TreePathStat[]   // top 5 by count
+  funnelStats: TreeFunnelStats
+}

@@ -342,16 +342,9 @@ export default function MyOfferPage() {
           marginBottom: '24px',
         }}
       >
-        <h1
-          style={{
-            fontSize: '24px',
-            fontWeight: 700,
-            margin: 0,
-            color: 'var(--text-primary)',
-          }}
-        >
-          My Offers
-        </h1>
+        <h1 style={{ margin: 0, fontSize: '22px', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            My Offers
+          </h1>
         {editingId === null && (
           <button
             onClick={openNew}

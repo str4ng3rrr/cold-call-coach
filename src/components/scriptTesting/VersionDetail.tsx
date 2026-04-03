@@ -1,10 +1,15 @@
-import { useState } from 'react'
-import { ArrowLeft, Phone, PhoneCall, BarChart2, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { ArrowLeft, Phone, PhoneCall, BarChart2, Archive, ArchiveRestore, Trash2, CalendarDays, Layers, Sheet, GitBranch } from 'lucide-react'
 import TallyFlow from './TallyFlow'
 import FunnelAnalytics from './FunnelAnalytics'
+import CalendarHeatmap from './CalendarHeatmap'
+import DetailedAnalyticsModal from './DetailedAnalyticsModal'
 import CallbackTracker from './CallbackTracker'
-import type { TestScript, CallRecord } from '../../types/scriptTesting'
+import ScriptTreeEditorOverlay from './tree/ScriptTreeEditorOverlay'
+import TreeAnalyticsPanel from './tree/TreeAnalyticsPanel'
+import type { TestScript, CallRecord, ScriptTreeData, TreeCallRecord } from '../../types/scriptTesting'
 import { OUTCOME_LABELS } from '../../types/scriptTesting'
+import { StorageKeys, loadString, saveString } from '../../lib/storage'
 
 interface VersionDetailProps {
   script: TestScript
@@ -15,6 +20,10 @@ interface VersionDetailProps {
   onDeleteCallback: (callbackId: string) => void
   onToggleArchive: () => void
   onDelete: () => void
+  onUpdateTree: (tree: ScriptTreeData) => void
+  onAddTreeCall: (call: Omit<TreeCallRecord, 'id'>) => void
+  onReplaceTreeCalls?: (calls: TreeCallRecord[]) => void
+  onDeleteSemanticId?: (key: string) => void
 }
 
 type Tab = 'tally' | 'analytics' | 'callbacks' | 'history'
@@ -33,9 +42,108 @@ export default function VersionDetail({
   onDeleteCallback,
   onToggleArchive,
   onDelete,
+  onUpdateTree,
+  onAddTreeCall,
+  onReplaceTreeCalls,
+  onDeleteSemanticId,
 }: VersionDetailProps) {
   const [activeTab, setActiveTab] = useState<Tab>('tally')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showTreeEditor, setShowTreeEditor] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [showDetailedAnalytics, setShowDetailedAnalytics] = useState(false)
+  const [syncState, setSyncState] = useState<'idle' | 'needs-auth' | 'waiting-auth' | 'loading' | 'success' | 'error'>('idle')
+  const [syncMsg, setSyncMsg] = useState('')
+  const authPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pendingSyncDay = useRef<string | null>(null)
+
+  const TZ_OPTIONS = [
+    { label: 'ET', tz: 'America/New_York' },
+    { label: 'CT', tz: 'America/Chicago' },
+    { label: 'MT', tz: 'America/Denver' },
+    { label: 'PT', tz: 'America/Los_Angeles' },
+  ]
+  const [callingTz, setCallingTz] = useState(() => loadString(StorageKeys.CALLING_TZ, 'America/New_York'))
+
+  function startAuthPoll(dayToSync: string) {
+    pendingSyncDay.current = dayToSync
+    if (authPollRef.current) clearInterval(authPollRef.current)
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch('/api/auth/status')
+        if (!res.ok) return
+        const { authenticated } = await res.json()
+        if (authenticated) {
+          clearInterval(poll)
+          authPollRef.current = null
+          const day = pendingSyncDay.current
+          pendingSyncDay.current = null
+          if (day) doSync(day)
+        }
+      } catch { /* ignore polling errors */ }
+    }, 1000)
+    authPollRef.current = poll
+    // Stop polling after 5 min
+    setTimeout(() => {
+      clearInterval(poll)
+      if (authPollRef.current === poll) {
+        authPollRef.current = null
+        setSyncState('idle')
+      }
+    }, 300_000)
+  }
+
+  async function doSync(day: string) {
+    setSyncState('loading')
+    setSyncMsg('')
+    try {
+      const dayCalls = script.calls.filter(c => c.timestamp.startsWith(day))
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calls: dayCalls, scriptName: script.name, date: day }),
+      })
+      let body: { added?: number; updated?: number; error?: string }
+      try { body = await res.json() } catch { throw new Error('Invalid response from server') }
+      if (!res.ok) throw new Error(body.error || 'Sync failed')
+      setSyncState('success')
+      const parts = []
+      if (body.added) parts.push(`${body.added} row${body.added > 1 ? 's' : ''} added`)
+      if (body.updated) parts.push(`${body.updated} row${body.updated > 1 ? 's' : ''} updated`)
+      setSyncMsg(parts.length ? parts.join(', ') : 'Synced')
+      setTimeout(() => setSyncState('idle'), 5000)
+    } catch (err) {
+      setSyncState('error')
+      setSyncMsg(err instanceof Error ? err.message : 'Sync failed')
+      setTimeout(() => setSyncState('idle'), 5000)
+    }
+  }
+
+  async function handleSync() {
+    if (!selectedDay) return
+    setSyncState('loading')
+    setSyncMsg('')
+    try {
+      let statusData: { authenticated: boolean }
+      try {
+        const statusRes = await fetch('/api/auth/status')
+        if (!statusRes.ok) throw new Error('server_down')
+        statusData = await statusRes.json()
+      } catch {
+        throw new Error('Sheets server not running — start it with: npm run dev:full')
+      }
+      if (!statusData.authenticated) {
+        setSyncState('needs-auth')
+        return
+      }
+      await doSync(selectedDay)
+    } catch (err) {
+      setSyncState('error')
+      setSyncMsg(err instanceof Error ? err.message : 'Sync failed')
+      setTimeout(() => setSyncState('idle'), 5000)
+    }
+  }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'tally', label: 'Tally', icon: <Phone size={14} /> },
@@ -73,6 +181,13 @@ export default function VersionDetail({
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowTreeEditor(true)}
+            title="Script Pathway Tree"
+          >
+            <GitBranch size={14} />
+          </button>
           <button
             className="btn btn-ghost btn-sm"
             onClick={onToggleArchive}
@@ -183,12 +298,221 @@ export default function VersionDetail({
           {/* Tab content */}
           <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
             {activeTab === 'tally' && (
-              <TallyFlow onCallComplete={onAddCall} />
+              <>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginBottom: '12px',
+                }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '4px' }}>Calling TZ:</span>
+                  {TZ_OPTIONS.map(opt => (
+                    <button
+                      key={opt.tz}
+                      onClick={() => {
+                        setCallingTz(opt.tz)
+                        saveString(StorageKeys.CALLING_TZ, opt.tz)
+                      }}
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: callingTz === opt.tz ? 700 : 500,
+                        padding: '3px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: `1px solid ${callingTz === opt.tz ? 'var(--accent)' : 'var(--border)'}`,
+                        background: callingTz === opt.tz ? 'var(--accent)' : 'transparent',
+                        color: callingTz === opt.tz ? '#fff' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-body)',
+                        transition: 'all 0.1s',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <TallyFlow
+                  onCallComplete={onAddCall}
+                  onUndoLastCall={() => {
+                    if (script.calls.length > 0) {
+                      onDeleteCall(script.calls[script.calls.length - 1].id)
+                    }
+                  }}
+                  callingTimezone={callingTz}
+                />
+              </>
             )}
 
-            {activeTab === 'analytics' && (
-              <FunnelAnalytics script={script} />
-            )}
+            {activeTab === 'analytics' && (() => {
+              const dayFilteredScript = selectedDay
+                ? {
+                    ...script,
+                    calls: script.calls.filter(c => c.timestamp.startsWith(selectedDay)),
+                    callbacks: (() => {
+                      const ids = new Set(script.calls.filter(c => c.timestamp.startsWith(selectedDay)).map(c => c.id))
+                      return script.callbacks.filter(cb => ids.has(cb.originalCallId))
+                    })(),
+                  }
+                : script
+              return (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                    {/* Sync to Sheets */}
+                    {syncState === 'needs-auth' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <span>Sign in to sync:</span>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            if (!selectedDay) return
+                            window.open('/api/auth/google', '_blank', 'width=500,height=600')
+                            setSyncState('waiting-auth')
+                            startAuthPoll(selectedDay)
+                          }}
+                          style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-sm)' }}
+                        >
+                          Authenticate with Google
+                        </button>
+                        <button className="btn btn-ghost btn-xs" onClick={() => setSyncState('idle')} style={{ padding: '2px 4px' }}>✕</button>
+                      </div>
+                    ) : syncState === 'waiting-auth' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <span style={{ color: 'var(--accent)' }}>Waiting for sign-in…</span>
+                        <button className="btn btn-ghost btn-xs" onClick={() => {
+                          if (authPollRef.current) { clearInterval(authPollRef.current); authPollRef.current = null }
+                          setSyncState('idle')
+                        }} style={{ padding: '2px 4px' }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={handleSync}
+                          disabled={!selectedDay || syncState === 'loading'}
+                          title={!selectedDay ? 'Select a day on the calendar first' : 'Sync this day to Google Sheets'}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '5px',
+                            fontSize: '12px',
+                            color: syncState === 'success' ? 'var(--success, #4caf82)'
+                              : syncState === 'error' ? 'var(--danger, #e05e5e)'
+                              : selectedDay ? 'var(--text-muted)' : 'var(--text-muted)',
+                            border: `1px solid ${syncState === 'success' ? 'var(--success, #4caf82)' : syncState === 'error' ? 'var(--danger, #e05e5e)' : 'var(--border)'}`,
+                            borderRadius: 'var(--radius-sm)', padding: '4px 10px',
+                            opacity: !selectedDay || syncState === 'loading' ? 0.5 : 1,
+                            cursor: !selectedDay ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          <Sheet size={13} />
+                          {syncState === 'loading' ? 'Syncing…' : 'Sync to Sheets'}
+                        </button>
+                        {syncMsg && (syncState === 'success' || syncState === 'error') && (
+                          <span style={{
+                            fontSize: '11px',
+                            color: syncState === 'success' ? 'var(--success, #4caf82)' : 'var(--danger, #e05e5e)',
+                          }}>
+                            {syncMsg}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setShowDetailedAnalytics(true)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontSize: '12px',
+                        color: 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '4px 10px',
+                      }}
+                    >
+                      <Layers size={13} />
+                      View All
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        setShowCalendar(v => {
+                          if (v) setSelectedDay(null)
+                          return !v
+                        })
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontSize: '12px',
+                        color: showCalendar ? 'var(--accent)' : 'var(--text-muted)',
+                        border: `1px solid ${showCalendar ? 'var(--accent)' : 'var(--border)'}`,
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '4px 10px',
+                      }}
+                    >
+                      <CalendarDays size={13} />
+                      Calendar
+                    </button>
+                  </div>
+                  {showDetailedAnalytics && (
+                    <DetailedAnalyticsModal
+                      script={dayFilteredScript}
+                      dayLabel={selectedDay
+                        ? new Date(selectedDay + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                        : null
+                      }
+                      onClose={() => setShowDetailedAnalytics(false)}
+                    />
+                  )}
+                  {showCalendar && (
+                    <CalendarHeatmap
+                      calls={script.calls}
+                      callbacks={script.callbacks}
+                      selectedDate={selectedDay}
+                      onDateSelect={setSelectedDay}
+                    />
+                  )}
+                  {selectedDay && (
+                    <div style={{
+                      fontSize: '11px',
+                      color: 'var(--text-muted)',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}>
+                      <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                        {new Date(selectedDay + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <span>· {dayFilteredScript.calls.length} call{dayFilteredScript.calls.length !== 1 ? 's' : ''}</span>
+                      <button
+                        className="btn btn-ghost btn-xs"
+                        onClick={() => setSelectedDay(null)}
+                        style={{ marginLeft: '2px', fontSize: '10px', padding: '1px 6px', color: 'var(--text-muted)' }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                  {script.tree
+                    ? <TreeAnalyticsPanel tree={script.tree} treeCalls={script.treeCalls ?? []} />
+                    : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '40px 20px', textAlign: 'center' }}>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+                          Build your pathway tree first to see analytics here.
+                        </p>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setShowTreeEditor(true)}
+                        >
+                          Open Tree Editor
+                        </button>
+                      </div>
+                    )
+                  }
+                </>
+              )
+            })()}
 
             {activeTab === 'callbacks' && (
               <CallbackTracker
@@ -261,6 +585,17 @@ export default function VersionDetail({
           }
         }
       `}</style>
+
+      {showTreeEditor && (
+        <ScriptTreeEditorOverlay
+          script={script}
+          onClose={() => setShowTreeEditor(false)}
+          onUpdateTree={onUpdateTree}
+          onAddTreeCall={onAddTreeCall}
+          onReplaceTreeCalls={onReplaceTreeCalls}
+          onDeleteSemanticId={onDeleteSemanticId}
+        />
+      )}
     </div>
   )
 }

@@ -4,12 +4,12 @@ import VersionCardList from '../components/scriptTesting/VersionCardList'
 import VersionDetail from '../components/scriptTesting/VersionDetail'
 import ComparisonView from '../components/scriptTesting/ComparisonView'
 import CreateVersionModal from '../components/scriptTesting/CreateVersionModal'
-import type { CallRecord } from '../types/scriptTesting'
+import type { CallRecord, ScriptTreeData, TreeCallRecord } from '../types/scriptTesting'
 
 type View =
   | { type: 'list' }
   | { type: 'detail'; scriptId: string }
-  | { type: 'compare'; idA: string; idB: string }
+  | { type: 'compare'; ids: string[] }
 
 export default function ScriptTestingPage() {
   const {
@@ -21,6 +21,8 @@ export default function ScriptTestingPage() {
     deleteCall,
     addCallback,
     deleteCallback,
+    updateTree,
+    addTreeCall,
   } = useTestScripts()
 
   const [view, setView] = useState<View>({ type: 'list' })
@@ -35,8 +37,22 @@ export default function ScriptTestingPage() {
     setView({ type: 'detail', scriptId: id })
   }
 
-  function handleCompare(idA: string, idB: string) {
-    setView({ type: 'compare', idA, idB })
+  function handleCompare(ids: string[]) {
+    setView({ type: 'compare', ids })
+  }
+
+  function handleDeleteSemanticId(key: string) {
+    for (const script of scripts) {
+      if (!script.tree) continue
+      const hasMatch = script.tree.nodes.some(n => n.semanticId === key)
+      if (!hasMatch) continue
+      updateTree(script.id, {
+        ...script.tree,
+        nodes: script.tree.nodes.map(n =>
+          n.semanticId === key ? { ...n, semanticId: undefined } : n
+        ),
+      })
+    }
   }
 
   if (view.type === 'detail') {
@@ -65,15 +81,18 @@ export default function ScriptTestingPage() {
             deleteScript(script.id)
             setView({ type: 'list' })
           }}
+          onUpdateTree={(tree: ScriptTreeData) => updateTree(script.id, tree)}
+          onAddTreeCall={(call: Omit<TreeCallRecord, 'id'>) => addTreeCall(script.id, call)}
+          onReplaceTreeCalls={(calls: TreeCallRecord[]) => updateScript(script.id, { treeCalls: calls })}
+          onDeleteSemanticId={handleDeleteSemanticId}
         />
       </div>
     )
   }
 
   if (view.type === 'compare') {
-    const scriptA = scripts.find(s => s.id === view.idA)
-    const scriptB = scripts.find(s => s.id === view.idB)
-    if (!scriptA || !scriptB) {
+    const found = view.ids.map(id => scripts.find(s => s.id === id)).filter((s): s is NonNullable<typeof s> => s !== undefined)
+    if (found.length < 2) {
       return (
         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
           Could not find versions to compare.{' '}
@@ -83,11 +102,11 @@ export default function ScriptTestingPage() {
         </div>
       )
     }
+    const sortedScripts = [...found].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     return (
       <div style={{ height: '100%', overflow: 'hidden' }}>
         <ComparisonView
-          scriptA={scriptA}
-          scriptB={scriptB}
+          scripts={sortedScripts}
           onClose={() => setView({ type: 'list' })}
         />
       </div>
@@ -105,7 +124,7 @@ export default function ScriptTestingPage() {
           const s = scripts.find(s => s.id === id)
           if (s) updateScript(id, { archived: !s.archived })
         }}
-        onCompare={handleCompare}
+        onCompare={(ids) => handleCompare(ids)}
       />
       {showCreateModal && (
         <CreateVersionModal

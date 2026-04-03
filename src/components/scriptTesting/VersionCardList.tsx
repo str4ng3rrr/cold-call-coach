@@ -8,13 +8,13 @@ interface VersionCardListProps {
   onOpen: (id: string) => void
   onCreateNew: () => void
   onToggleArchive: (id: string) => void
-  onCompare: (idA: string, idB: string) => void
+  onCompare: (ids: string[]) => void
 }
 
 export default function VersionCardList({ scripts, onOpen, onCreateNew, onToggleArchive, onCompare }: VersionCardListProps) {
   const [showArchived, setShowArchived] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
-  const selectionMode = selected.length > 0
+  const [abTestingMode, setAbTestingMode] = useState(false)
 
   const visible = scripts.filter(s => showArchived || !s.archived)
   const archivedCount = scripts.filter(s => s.archived).length
@@ -22,16 +22,20 @@ export default function VersionCardList({ scripts, onOpen, onCreateNew, onToggle
   function toggleSelect(id: string) {
     setSelected(prev => {
       if (prev.includes(id)) return prev.filter(x => x !== id)
-      if (prev.length >= 2) return [prev[1], id] // Keep last 2
+      if (prev.length >= 4) return [prev[1], prev[2], prev[3], id]
       return [...prev, id]
     })
   }
 
+  function exitAbTesting() {
+    setAbTestingMode(false)
+    setSelected([])
+  }
+
   function handleCompare() {
-    if (selected.length === 2) {
-      onCompare(selected[0], selected[1])
-      setSelected([])
-    }
+    onCompare([...selected])
+    setSelected([])
+    setAbTestingMode(false)
   }
 
   return (
@@ -47,26 +51,43 @@ export default function VersionCardList({ scripts, onOpen, onCreateNew, onToggle
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {selectionMode && (
-            <>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                {selected.length}/2 selected
-              </span>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={handleCompare}
-                disabled={selected.length < 2}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <GitCompare size={14} />
-                Compare
-              </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSelected([])}>
-                Cancel
-              </button>
-            </>
+          {abTestingMode && (
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {selected.length}/4 selected
+            </span>
           )}
-          {!selectionMode && (
+          <button
+            className="btn btn-sm"
+            onClick={() => abTestingMode ? exitAbTesting() : setAbTestingMode(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              backgroundColor: abTestingMode ? 'var(--accent)' : 'transparent',
+              color: abTestingMode ? '#fff' : 'var(--text-muted)',
+              border: abTestingMode ? 'none' : '1px solid var(--border)',
+            }}
+          >
+            <GitCompare size={14} />
+            A/B Test
+          </button>
+          {abTestingMode && selected.length >= 2 && (
+            <button
+              className="btn btn-sm"
+              onClick={handleCompare}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                backgroundColor: 'var(--accent)',
+                color: '#fff',
+                border: 'none',
+              }}
+            >
+              Compare ({selected.length})
+            </button>
+          )}
+          {abTestingMode ? (
+            <button className="btn btn-ghost btn-sm" onClick={exitAbTesting}>
+              Cancel
+            </button>
+          ) : (
             <button
               className="btn btn-primary"
               onClick={onCreateNew}
@@ -88,20 +109,6 @@ export default function VersionCardList({ scripts, onOpen, onCreateNew, onToggle
           >
             {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
           </button>
-        </div>
-      )}
-
-      {/* Compare hint */}
-      {!selectionMode && visible.length >= 2 && (
-        <div style={{
-          fontSize: '12px',
-          color: 'var(--text-muted)',
-          padding: '8px 12px',
-          backgroundColor: 'var(--accent-light)',
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--accent-border)',
-        }}>
-          Tip: Click on cards to select them, then compare two versions side-by-side.
         </div>
       )}
 
@@ -157,7 +164,7 @@ export default function VersionCardList({ scripts, onOpen, onCreateNew, onToggle
               onSelect={() => toggleSelect(script.id)}
               onOpen={() => onOpen(script.id)}
               onToggleArchive={() => onToggleArchive(script.id)}
-              selectionMode={selectionMode}
+              selectionMode={abTestingMode}
             />
           ))}
         </div>

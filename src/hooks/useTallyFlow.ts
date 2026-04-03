@@ -313,7 +313,6 @@ export function useTallyFlow() {
 
   const canGoBack = state.history.length > 0
     && state.stage !== 'notes_input'
-    && state.stage !== 'done'
     && state.stage !== 'idle'
 
   return {
