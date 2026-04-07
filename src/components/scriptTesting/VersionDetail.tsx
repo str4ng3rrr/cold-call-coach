@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react'
 import { ArrowLeft, Phone, PhoneCall, BarChart2, Archive, ArchiveRestore, Trash2, CalendarDays, Layers, Sheet, GitBranch } from 'lucide-react'
 import TallyFlow from './TallyFlow'
-import FunnelAnalytics from './FunnelAnalytics'
 import CalendarHeatmap from './CalendarHeatmap'
 import DetailedAnalyticsModal from './DetailedAnalyticsModal'
 import CallbackTracker from './CallbackTracker'
@@ -49,6 +48,7 @@ export default function VersionDetail({
 }: VersionDetailProps) {
   const [activeTab, setActiveTab] = useState<Tab>('tally')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deletingCallId, setDeletingCallId] = useState<string | null>(null)
   const [showTreeEditor, setShowTreeEditor] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
@@ -467,7 +467,6 @@ export default function VersionDetail({
                   {showCalendar && (
                     <CalendarHeatmap
                       calls={script.calls}
-                      callbacks={script.callbacks}
                       selectedDate={selectedDay}
                       onDateSelect={setSelectedDay}
                     />
@@ -553,13 +552,24 @@ export default function VersionDetail({
                           </div>
                         )}
                       </div>
-                      <button
-                        className="btn btn-ghost btn-xs"
-                        onClick={() => onDeleteCall(call.id)}
-                        title="Delete call"
-                      >
-                        <Trash2 size={11} color="var(--text-muted)" />
-                      </button>
+                      {deletingCallId === call.id ? (
+                        <button
+                          className="btn btn-danger btn-xs"
+                          onClick={() => { onDeleteCall(call.id); setDeletingCallId(null) }}
+                          title="Confirm delete"
+                          style={{ fontSize: '11px', fontWeight: 600 }}
+                        >
+                          Sure?
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          onClick={() => setDeletingCallId(call.id)}
+                          title="Delete call"
+                        >
+                          <Trash2 size={11} color="var(--text-muted)" />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}

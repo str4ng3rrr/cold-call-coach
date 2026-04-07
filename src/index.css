@@ -36,6 +36,13 @@
   --danger: #c0392b;
   --danger-light: #fdf0ee;
   --danger-border: #e8a9a2;
+  --warning: #d4a24c;
+  --warning-light: #fef3e2;
+  --warning-border: #e8c97a;
+  --info: #3b82f6;
+  --info-light: #eff6ff;
+  --info-border: #bfdbfe;
+  --info-hover: #2563eb;
 
   --bubble-user: #1a4d3e;
   --bubble-assistant: #f0ece6;

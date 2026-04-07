@@ -29,6 +29,13 @@ export default function TreeRecordingPanel({ tree, onCallComplete }: Props) {
   const notesRef = useRef<HTMLTextAreaElement>(null)
   const doneHandled = useRef(false)
 
+  // Reset the guard whenever a new recording starts
+  useEffect(() => {
+    if (state.mode === 'recording') {
+      doneHandled.current = false
+    }
+  }, [state.mode])
+
   // Trigger onCallComplete after done
   useEffect(() => {
     if (isDone && completedCall && !doneHandled.current) {

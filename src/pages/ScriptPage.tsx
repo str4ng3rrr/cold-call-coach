@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, MessageSquare, ChevronLeft, ChevronRight, ChevronDown, Plus, Loader2, AlertCircle, RefreshCw, History, X } from 'lucide-react'
 import { StorageKeys } from '../lib/storage'
 import { HUMANIZER_PROMPT } from '../lib/humanizer'
+import { generateId } from '../lib/utils'
 import ReactMarkdown from 'react-markdown'
 
 const SCRIPT_KEY = StorageKeys.Script
@@ -125,10 +126,6 @@ function saveChatSessions(sessions: ChatSession[]) {
     messages: s.messages.filter(m => m.role !== 'error'),
   }))
   localStorage.setItem(CHATS_KEY, JSON.stringify(toSave))
-}
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 }
 
 function createNewSession(): ChatSession {
@@ -1276,9 +1273,6 @@ export default function ScriptPage() {
                 )}
               </button>
             </div>
-            
-           
-            
           </div>
 
         </div>

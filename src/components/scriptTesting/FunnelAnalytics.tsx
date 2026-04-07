@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import FunnelBar from './FunnelBar'
 import MiniBarChart from './MiniBarChart'
 import type { TestScript } from '../../types/scriptTesting'
@@ -63,7 +64,7 @@ export function computeAnalytics(script: TestScript) {
 }
 
 export default function FunnelAnalytics({ script, accentColor = 'var(--accent)' }: FunnelAnalyticsProps) {
-  const stats = computeAnalytics(script)
+  const stats = useMemo(() => computeAnalytics(script), [script])
 
   if (stats.total === 0) {
     return (

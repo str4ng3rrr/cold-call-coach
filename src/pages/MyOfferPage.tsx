@@ -70,10 +70,13 @@ export default function MyOfferPage() {
     cancelForm()
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   function deleteOffer(id: string) {
     const updated = offers.filter(o => o.id !== id)
     setOffers(updated)
     saveJSON(StorageKeys.Offers, updated)
+    setDeletingId(null)
   }
 
   function addBenefit() {
@@ -536,27 +539,50 @@ export default function MyOfferPage() {
                     <Pencil size={12} />
                     Edit
                   </button>
-                  <button
-                    onClick={() => deleteOffer(offer.id)}
-                    className="offer-delete-btn"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #fecaca',
-                      backgroundColor: '#fff',
-                      color: '#ef4444',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      transition: 'background-color 0.12s',
-                    }}
-                  >
-                    <Trash2 size={12} />
-                    Delete
-                  </button>
+                  {deletingId === offer.id ? (
+                    <button
+                      onClick={() => deleteOffer(offer.id)}
+                      className="offer-delete-btn"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid #fecaca',
+                        backgroundColor: '#fef2f2',
+                        color: '#ef4444',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'background-color 0.12s',
+                      }}
+                    >
+                      Are you sure?
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setDeletingId(offer.id)}
+                      className="offer-delete-btn"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid #fecaca',
+                        backgroundColor: '#fff',
+                        color: '#ef4444',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'background-color 0.12s',
+                      }}
+                    >
+                      <Trash2 size={12} />
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

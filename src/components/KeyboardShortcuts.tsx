@@ -6,9 +6,9 @@ export default function KeyboardShortcuts() {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      const mod = e.altKey
+      // Use Ctrl+Shift+1-6 to avoid conflicts with OS/browser shortcuts
+      const mod = e.ctrlKey && e.shiftKey
 
-      // Cmd/Ctrl+1-4 for quick navigation
       if (mod && e.key === '1') { e.preventDefault(); navigate('/lessons') }
       if (mod && e.key === '2') { e.preventDefault(); navigate('/playbook') }
       if (mod && e.key === '3') { e.preventDefault(); navigate('/script') }

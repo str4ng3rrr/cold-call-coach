@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { GitBranch } from 'lucide-react'
-import type { TestScript, ScriptTreeData, TreeCallRecord, TreeNode, TreeEdge } from '../../../types/scriptTesting'
+import type { TestScript, ScriptTreeData, TreeCallRecord, TreeNode } from '../../../types/scriptTesting'
 import { useScriptTree } from '../../../hooks/useScriptTree'
+import { generateId } from '../../../lib/utils'
 import TreeEditorHeader from './TreeEditorHeader'
 import TreeEditorCanvas from './TreeEditorCanvas'
 import NodeAddToolbar from './NodeAddToolbar'
@@ -21,10 +22,6 @@ interface Props {
 }
 
 type Mode = 'edit' | 'record' | 'analytics'
-
-function generateId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
 
 export default function ScriptTreeEditorOverlay({ script, onClose, onUpdateTree, onAddTreeCall, onReplaceTreeCalls, onDeleteSemanticId }: Props) {
   const [activeMode, setActiveMode] = useState<Mode>('edit')

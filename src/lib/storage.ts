@@ -13,13 +13,28 @@ export const StorageKeys = {
   CustomSemanticIds: 'ccc_custom_semantic_ids',
 } as const
 
-export function loadJSON<T>(key: string, fallback: T): T {
+export function loadJSON<T>(key: string, fallback: T, validator?: (data: unknown) => data is T): T {
   try {
     const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
+    if (!raw) return fallback
+    const parsed = JSON.parse(raw)
+    if (validator && !validator(parsed)) {
+      console.warn(`[storage] Invalid data for key "${key}", using fallback`)
+      return fallback
+    }
+    return parsed as T
   } catch {
+    console.warn(`[storage] Failed to parse key "${key}", using fallback`)
     return fallback
   }
+}
+
+export function isValidArray(data: unknown): data is unknown[] {
+  return Array.isArray(data)
+}
+
+export function isValidObject(data: unknown): data is Record<string, unknown> {
+  return typeof data === 'object' && data !== null && !Array.isArray(data)
 }
 
 export function saveJSON(key: string, data: unknown): void {

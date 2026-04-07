@@ -13,6 +13,32 @@ const app = express()
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }))
 app.use(express.json())
 
+// Simple in-memory rate limiter for sync endpoint
+const rateLimitStore = new Map()
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_REQUESTS = 10
+
+function rateLimitMiddleware(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown'
+  const now = Date.now()
+  const window = rateLimitStore.get(ip) ?? { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS }
+
+  if (now > window.resetAt) {
+    window.count = 1
+    window.resetAt = now + RATE_LIMIT_WINDOW_MS
+  } else {
+    window.count++
+  }
+
+  rateLimitStore.set(ip, window)
+
+  if (window.count > RATE_LIMIT_MAX_REQUESTS) {
+    return res.status(429).json({ error: `Rate limit exceeded. Max ${RATE_LIMIT_MAX_REQUESTS} requests per minute.` })
+  }
+
+  next()
+}
+
 const TOKENS_PATH = path.join(__dirname, 'tokens.json')
 const REDIRECT_URI = 'http://localhost:3001/auth/callback'
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -119,11 +145,14 @@ async function getAuthClient() {
   if (!tokens) return null
   const client = createOAuth2Client()
   client.setCredentials(tokens)
+
+  client.on('tokens', (newTokens) => {
+    saveTokens(newTokens)
+  })
+
   if (tokens.expiry_date && tokens.expiry_date < Date.now() + 60_000) {
     try {
-      const { credentials } = await client.refreshAccessToken()
-      saveTokens(credentials)
-      client.setCredentials(credentials)
+      await client.getAccessToken()
     } catch {
       return null
     }
@@ -167,7 +196,7 @@ app.get('/auth/callback', async (req, res) => {
 })
 
 // Sync daily summary rows (one per time block) to sheet
-app.post('/api/sync', async (req, res) => {
+app.post('/api/sync', rateLimitMiddleware, async (req, res) => {
   const { calls, scriptName, date } = req.body
 
   if (!calls || !Array.isArray(calls)) {

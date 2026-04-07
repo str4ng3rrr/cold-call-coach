@@ -1,9 +1,10 @@
 // Note: Direct browser calls to Anthropic API require CORS to be handled (e.g. via a proxy)
+import { fetchWithRetry } from './retry'
 
 export async function analyzeTranscript(transcript: string): Promise<{ title: string; feedback: string }> {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
 
-  const response = await fetch('/api/anthropic/v1/messages', {
+  const response = await fetchWithRetry('/api/anthropic/v1/messages', {
     method: 'POST',
     headers: {
       'x-api-key': apiKey,

@@ -1,9 +1,6 @@
 import { useCallback } from 'react'
 import type { ScriptTreeData, TreeNode, TreeEdge } from '../types/scriptTesting'
-
-function generateId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
+import { generateId } from '../lib/utils'
 
 const EMPTY_TREE: ScriptTreeData = {
   nodes: [],

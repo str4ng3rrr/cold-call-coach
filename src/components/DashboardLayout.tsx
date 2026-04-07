@@ -80,6 +80,7 @@ export default function DashboardLayout() {
           <button
             onClick={() => setSidebarOpen(false)}
             className="sidebar-close-btn"
+            aria-label="Close sidebar"
             style={{
               display: 'none',
               background: 'none', border: 'none', cursor: 'pointer',
@@ -148,7 +149,7 @@ export default function DashboardLayout() {
                         className="nav-shortcut-hint"
                         style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.5 }}
                       >
-                        Alt+{shortcut}
+                        Ctrl+Shift+{shortcut}
                       </span>
                     </>
                   )}
@@ -186,6 +187,7 @@ export default function DashboardLayout() {
         >
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: '4px', color: 'var(--text-muted)',

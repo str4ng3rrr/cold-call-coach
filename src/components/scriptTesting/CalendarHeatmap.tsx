@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { CallRecord, CallbackRecord } from '../../types/scriptTesting'
+import type { CallRecord } from '../../types/scriptTesting'
 
 interface CalendarHeatmapProps {
   calls: CallRecord[]
-  callbacks: CallbackRecord[]
   selectedDate: string | null
   onDateSelect: (date: string | null) => void
   accentColor?: string
@@ -114,7 +113,6 @@ function MonthGrid({ year, monthIdx, dateMap, today, selectedDate, accentColor, 
 
 export default function CalendarHeatmap({
   calls,
-  callbacks: _callbacks,
   selectedDate,
   onDateSelect,
   accentColor = 'var(--accent)',

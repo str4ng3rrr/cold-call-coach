@@ -1,10 +1,7 @@
 import { useState, useCallback } from 'react'
 import { StorageKeys, loadJSON, saveJSON } from '../lib/storage'
+import { generateId } from '../lib/utils'
 import type { TestScript, CallRecord, CallbackRecord, ScriptTreeData, TreeCallRecord } from '../types/scriptTesting'
-
-function generateId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
 
 function load(): TestScript[] {
   return loadJSON<TestScript[]>(StorageKeys.TestScripts, [])

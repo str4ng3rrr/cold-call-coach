@@ -3,6 +3,7 @@ import { PlusCircle, Pencil, Check, X, Calendar, BookMarked, ChevronDown, Chevro
 import ReactMarkdown from 'react-markdown'
 import { analyzeTranscript } from '../lib/aiService'
 import { StorageKeys } from '../lib/storage'
+import { generateId } from '../lib/utils'
 
 interface Lesson {
   id: string
@@ -12,10 +13,6 @@ interface Lesson {
   createdAt: string
   addedToPlaybook: boolean
   tags?: string[]
-}
-
-function generateId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
 function loadLessons(): Lesson[] {
@@ -78,6 +75,7 @@ export default function LessonsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([])
   const [sortNewest, setSortNewest] = useState(true)
+  const [visibleCount, setVisibleCount] = useState(20)
 
   // Per-card tag input state
   const [addingTagForId, setAddingTagForId] = useState<string | null>(null)
@@ -174,10 +172,13 @@ export default function LessonsPage() {
     setEditingId(null)
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   function deleteLesson(id: string) {
     setLessons(prev => prev.filter(l => l.id !== id))
     if (expandedId === id) setExpandedId(null)
     if (feedbackExpandedId === id) setFeedbackExpandedId(null)
+    setDeletingId(null)
   }
 
   function addTag(lessonId: string, tag: string) {
@@ -192,11 +193,15 @@ export default function LessonsPage() {
   }
 
   function removeTag(lessonId: string, tag: string) {
-    setLessons(prev => prev.map(l =>
-      l.id === lessonId ? { ...l, tags: (l.tags ?? []).filter(t => t !== tag) } : l
-    ))
-    // If the removed tag was an active filter and no lesson has it anymore, clear it
-    setActiveTagFilters(prev => prev.filter(t => t !== tag || lessons.some(l => l.id !== lessonId && (l.tags ?? []).includes(tag))))
+    setLessons(prev => {
+      const next = prev.map(l =>
+        l.id === lessonId ? { ...l, tags: (l.tags ?? []).filter(t => t !== tag) } : l
+      )
+      setActiveTagFilters(prevFilters =>
+        prevFilters.filter(t => t !== tag || next.some(l => l.id !== lessonId && (l.tags ?? []).includes(tag)))
+      )
+      return next
+    })
   }
 
   function commitTagInput(lessonId: string) {
@@ -250,6 +255,13 @@ export default function LessonsPage() {
   }, [lessons, searchQuery, activeTagFilters, showUnadded, sortNewest])
 
   const isFiltering = searchQuery.trim() !== '' || activeTagFilters.length > 0 || showUnadded
+
+  useEffect(() => {
+    setVisibleCount(20)
+  }, [searchQuery, activeTagFilters, showUnadded, sortNewest])
+
+  const paginatedLessons = displayedLessons.slice(0, visibleCount)
+  const hasMore = visibleCount < displayedLessons.length
 
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -335,18 +347,18 @@ export default function LessonsPage() {
             }}
           />
           <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-            <button
-              onClick={handleSubmit}
-              disabled={!transcript.trim() || submitting}
-              className="lessons-save-btn"
-              style={{
-                padding: '7px 16px', borderRadius: '6px', border: 'none',
-                backgroundColor: transcript.trim() && !submitting ? '#3b82f6' : '#d1d5db',
-                color: '#fff', fontSize: '14px', fontWeight: 500,
-                cursor: transcript.trim() && !submitting ? 'pointer' : 'not-allowed',
-                transition: 'background-color 0.12s',
-              }}
-            >
+              <button
+                onClick={handleSubmit}
+                disabled={!transcript.trim() || submitting}
+                className="lessons-save-btn"
+                style={{
+                  padding: '7px 16px', borderRadius: '6px', border: 'none',
+                  backgroundColor: transcript.trim() && !submitting ? 'var(--info)' : '#d1d5db',
+                  color: '#fff', fontSize: '14px', fontWeight: 500,
+                  cursor: transcript.trim() && !submitting ? 'pointer' : 'not-allowed',
+                  transition: 'background-color 0.12s',
+                }}
+              >
               {submitting ? 'Saving...' : 'Save Lesson'}
             </button>
             <button
@@ -512,13 +524,13 @@ export default function LessonsPage() {
       )}
 
       {/* Lesson Grid */}
-      {displayedLessons.length > 0 && (
+      {paginatedLessons.length > 0 && (
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
           gap: '16px',
         }}>
-          {displayedLessons.map(lesson => {
+          {paginatedLessons.map(lesson => {
             const isAnalyzing = analyzingId === lesson.id
             const analyzeError = analyzeErrors[lesson.id]
             const feedbackOpen = feedbackExpandedId === lesson.id
@@ -796,21 +808,55 @@ export default function LessonsPage() {
                     <Download size={12} />
                     Export
                   </button>
-                  <button
-                    onClick={() => deleteLesson(lesson.id)}
-                    className="lessons-delete-btn"
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      fontSize: '12px', color: '#ef4444', fontWeight: 500, padding: '2px 0',
-                      transition: 'color 0.12s',
-                    }}
-                  >
-                    Delete
-                  </button>
+                  {deletingId === lesson.id ? (
+                    <button
+                      onClick={() => deleteLesson(lesson.id)}
+                      className="lessons-delete-btn"
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontSize: '12px', color: '#ef4444', fontWeight: 600, padding: '2px 0',
+                      }}
+                    >
+                      Are you sure?
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setDeletingId(lesson.id)}
+                      className="lessons-delete-btn"
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontSize: '12px', color: '#ef4444', fontWeight: 500, padding: '2px 0',
+                        transition: 'color 0.12s',
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             )
           })}
+        </div>
+      )}
+
+      {hasMore && (
+        <div style={{ textAlign: 'center', marginTop: '24px' }}>
+          <button
+            onClick={() => setVisibleCount(c => c + 20)}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '6px',
+              border: '1px solid var(--border)',
+              backgroundColor: '#fff',
+              color: 'var(--text-primary)',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'background-color 0.12s',
+            }}
+          >
+            Load More ({displayedLessons.length - visibleCount} remaining)
+          </button>
         </div>
       )}
 

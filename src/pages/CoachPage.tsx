@@ -153,6 +153,19 @@ export default function CoachPage() {
   const [offerPanelOpen, setOfferPanelOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const messagesRef = useRef(messages)
+  const inputRef2 = useRef(input)
+  const attachedRef = useRef(attachedLessonIds)
+  const lessonsRef = useRef(lessons)
+  const offersRef = useRef(offers)
+  const selectedOfferIdsRef = useRef(selectedOfferIds)
+
+  useEffect(() => { messagesRef.current = messages }, [messages])
+  useEffect(() => { inputRef2.current = input }, [input])
+  useEffect(() => { attachedRef.current = attachedLessonIds }, [attachedLessonIds])
+  useEffect(() => { lessonsRef.current = lessons }, [lessons])
+  useEffect(() => { offersRef.current = offers }, [offers])
+  useEffect(() => { selectedOfferIdsRef.current = selectedOfferIds }, [selectedOfferIds])
 
   // Reload lessons on mount
   useEffect(() => {
@@ -182,18 +195,19 @@ export default function CoachPage() {
   }
 
   const handleSend = useCallback(async () => {
-    const text = input.trim()
+    const text = inputRef2.current.trim()
     if (!text || loading) return
 
-    // Build the API content: lesson context prepended before user text
-    const lessonContext = buildLessonContext(lessons, attachedLessonIds)
+    const currentLessons = lessonsRef.current
+    const currentAttached = attachedRef.current
+
+    const lessonContext = buildLessonContext(currentLessons, currentAttached)
     const apiContent = lessonContext ? `${lessonContext}\n\n${text}` : text
 
-    // Capture which lessons were attached for display in the bubble
     const referencedLessons =
-      attachedLessonIds.length > 0
-        ? attachedLessonIds
-            .map(id => lessons.find(l => l.id === id))
+      currentAttached.length > 0
+        ? currentAttached
+            .map(id => currentLessons.find(l => l.id === id))
             .filter((l): l is Lesson => !!l)
             .map(l => ({ id: l.id, title: l.title }))
         : undefined
@@ -203,7 +217,8 @@ export default function CoachPage() {
       content: apiContent,
       referencedLessons,
     }
-    const nextMessages = [...messages, userMessage]
+    const currentMessages = messagesRef.current
+    const nextMessages = [...currentMessages, userMessage]
 
     setMessages(nextMessages)
     setInput('')
@@ -212,7 +227,7 @@ export default function CoachPage() {
     setLoading(true)
 
     try {
-      const activeOffers = offers.filter(o => selectedOfferIds.includes(o.id))
+      const activeOffers = offersRef.current.filter(o => selectedOfferIdsRef.current.includes(o.id))
       const reply = await sendToClaudeApi(nextMessages, buildSystemPrompt(activeOffers))
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
     } catch (err) {
@@ -223,10 +238,9 @@ export default function CoachPage() {
       ])
     } finally {
       setLoading(false)
-      // Restore focus to input after response
       setTimeout(() => inputRef.current?.focus(), 0)
     }
-  }, [input, loading, messages, attachedLessonIds, lessons, offers, selectedOfferIds])
+  }, [loading])
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {

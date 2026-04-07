@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { GitBranch, X } from 'lucide-react'
 import { computeTreeAnalytics } from '../../../lib/treeAnalytics'
 import type { TestScript, TreeAnalytics, TreeNode } from '../../../types/scriptTesting'

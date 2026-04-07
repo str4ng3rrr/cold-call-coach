@@ -1,4 +1,4 @@
-import type { ScriptTreeData, TreeCallRecord, TreeAnalytics, TreePathStat, TreeFunnelStats } from '../types/scriptTesting'
+import type { ScriptTreeData, TreeCallRecord, TreeEdge, TreeAnalytics, TreePathStat, TreeFunnelStats } from '../types/scriptTesting'
 
 export type { TreeFunnelStats }
 
@@ -13,6 +13,12 @@ export function computeTreeAnalytics(
 
   const pathCounts: Record<string, { count: number; booked: number; pathNodeIds: string[] }> = {}
 
+  // Build edge lookup map: "fromId>toId" → edge (O(1) lookup)
+  const edgeMap = new Map<string, TreeEdge>()
+  for (const edge of tree.edges) {
+    edgeMap.set(`${edge.fromNodeId}>${edge.toNodeId}`, edge)
+  }
+
   for (const call of treeCalls) {
     // Visit counts
     for (const nodeId of call.pathNodeIds) {
@@ -21,11 +27,11 @@ export function computeTreeAnalytics(
     // Exit counts
     if (nodeStats[call.terminalNodeId]) nodeStats[call.terminalNodeId].exitCount++
 
-    // Edge traversals
+    // Edge traversals — O(1) lookup instead of O(n) .find()
     for (let i = 0; i < call.pathNodeIds.length - 1; i++) {
       const fromId = call.pathNodeIds[i]
       const toId = call.pathNodeIds[i + 1]
-      const edge = tree.edges.find(e => e.fromNodeId === fromId && e.toNodeId === toId)
+      const edge = edgeMap.get(`${fromId}>${toId}`)
       if (edge && nodeStats[fromId]) {
         nodeStats[fromId].edgeTraversals[edge.id] = (nodeStats[fromId].edgeTraversals[edge.id] ?? 0) + 1
       }

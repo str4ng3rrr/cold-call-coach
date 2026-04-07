@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { BookOpen, Edit3, Save, AlertCircle, PlusCircle, CheckCircle, Loader2, ListPlus, X, Check, Trash2, ChevronDown, Square } from 'lucide-react'
 import { StorageKeys } from '../lib/storage'
 import { HUMANIZER_PROMPT } from '../lib/humanizer'
+import { generateId } from '../lib/utils'
 
 interface Lesson {
   id: string
@@ -25,13 +26,6 @@ const SECTIONS_KEY = StorageKeys.PlaybookSections
 const LESSONS_KEY = StorageKeys.Lessons
 const API_URL = '/api/anthropic/v1/messages'
 const MODEL = 'claude-sonnet-4-6'
-
-function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
 
 function computeCombinedPlaybook(sections: PlaybookSection[]): string {
   return sections
@@ -96,11 +90,9 @@ function delay(ms: number): Promise<void> {
 }
 
 export default function PlaybookPage() {
-  const [sections, setSections] = useState<PlaybookSection[]>(() => migrateIfNeeded())
-  const [activeSectionId, setActiveSectionId] = useState<string>(() => {
-    const s = migrateIfNeeded()
-    return s[0]?.id ?? ''
-  })
+  const initialSections = useMemo(() => migrateIfNeeded(), [])
+  const [sections, setSections] = useState<PlaybookSection[]>(initialSections)
+  const [activeSectionId, setActiveSectionId] = useState<string>(() => initialSections[0]?.id ?? '')
   const activeSectionIdRef = useRef(activeSectionId)
   useEffect(() => { activeSectionIdRef.current = activeSectionId }, [activeSectionId])
 
@@ -158,7 +150,7 @@ export default function PlaybookPage() {
   useEffect(() => {
     const section = sections.find(s => s.id === activeSectionId)
     setDraftContent(section?.content ?? '')
-  }, [activeSectionId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeSectionId, sections])
 
   // Auto-focus new section input when it appears
   useEffect(() => {
